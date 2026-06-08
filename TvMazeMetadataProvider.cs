@@ -101,6 +101,8 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
 
     public void Configure(IReadOnlyDictionary<string, string> settings)
     {
+        // Dispose the old client first so its SemaphoreSlim is not leaked.
+        _client?.Dispose();
         _ownedHttp?.Dispose();
         var http = new HttpClient
         {
@@ -170,11 +172,18 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
             candidates.Add(new ScoredCandidate(MapShow(r.Show), score, "text search"));
         }
 
-        // Enrich the top candidate with embedded cast/images
+        // Sort first so we enrich the highest-scoring candidate, not just whichever
+        // TVMaze happened to return first in its own relevance order.
+        candidates.Sort((a, b) => b.Score.CompareTo(a.Score));
+
+        // Enrich the top candidate with embedded cast/images (single extra request).
         if (candidates.Count > 0)
         {
             var top = candidates[0];
-            if (int.TryParse(top.Metadata.ExternalId?[5..], out var showId))
+            var topExtId = top.Metadata.ExternalId ?? string.Empty;
+            var topIdStr = topExtId.StartsWith("show:", StringComparison.OrdinalIgnoreCase)
+                ? topExtId[5..] : topExtId;
+            if (int.TryParse(topIdStr, out var showId))
             {
                 var full = await _client.GetShowAsync(showId, ct).ConfigureAwait(false);
                 if (full is not null)
@@ -182,7 +191,7 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
             }
         }
 
-        return candidates.OrderByDescending(c => c.Score).ToList();
+        return candidates;
     }
 
     // Level 1 — Season ────────────────────────────────────────────────────────
@@ -260,12 +269,18 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
                 scoreReason = $"S{seasonNumber:D2}E{context.ItemNumber:D2} match";
         }
 
-        // Fallback: title match (handles TVMaze/TMDB numbering divergence)
+        // Fallback: title match (handles TVMaze/TMDB numbering divergence).
+        // Use bidirectional containment to tolerate minor title differences in either direction.
         if (match is null && !string.IsNullOrWhiteSpace(context.Name))
         {
+            var normContext = NormaliseName(context.Name);
             match = episodes.FirstOrDefault(e =>
-                NormaliseName(e.Name).Contains(NormaliseName(context.Name),
-                    StringComparison.OrdinalIgnoreCase));
+            {
+                var normEp = NormaliseName(e.Name);
+                return normEp.Equals(normContext, StringComparison.Ordinal)
+                    || normEp.Contains(normContext, StringComparison.Ordinal)
+                    || normContext.Contains(normEp, StringComparison.Ordinal);
+            });
 
             if (match is not null)
             {
@@ -307,10 +322,11 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
         if (externalId.StartsWith("imdb:", StringComparison.OrdinalIgnoreCase))
             externalId = externalId[5..];
         if (externalId.StartsWith("tt", StringComparison.OrdinalIgnoreCase)
-            && externalId.All(c => char.IsLetterOrDigit(c)))
+            && externalId.Length > 2 && externalId[2..].All(char.IsDigit))
         {
             var show = await _client!.LookupByImdbIdAsync(externalId, ct).ConfigureAwait(false);
             if (show is not null) return await FullShowMetadata(show, ct);
+            _logger.LogDebug("TVMaze: no show found for IMDB ID '{Id}'", externalId);
             return EmptyResult(externalId);
         }
 
@@ -354,8 +370,11 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
     // ── Image + health ────────────────────────────────────────────────────────
 
     public Task<byte[]> GetImageAsync(string url, CancellationToken ct = default)
-        => throw new NotSupportedException(
-            "TVMaze provides direct image URLs; use PosterUrl/BackdropUrl etc. directly.");
+    {
+        EnsureConfigured();
+        // TVMaze image CDN URLs are public and require no auth — fetch directly via the client's HttpClient.
+        return _client!.GetImageBytesAsync(url, ct);
+    }
 
     public async Task<bool> HealthCheckAsync(CancellationToken ct = default)
     {
@@ -490,16 +509,20 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
         }
 
         // Parent raw TVDB ID → lookup
+        long? triedTvdbId = null;
         if (ids?.TryGetValue("parent_tvdb", out var parentTvdb) == true
             && long.TryParse(parentTvdb, out var tvdbId))
         {
+            triedTvdbId = tvdbId;
             var show = await _client!.LookupByTvdbIdAsync(tvdbId, ct).ConfigureAwait(false);
             if (show is not null) return show.Id;
         }
 
-        // Own TVDB cross-ref (for show-level context passed down to child)
+        // Own TVDB cross-ref (for show-level context passed down to child).
+        // Skip if it's the same ID we already tried above to avoid a redundant request.
         if (ids?.TryGetValue("tvdb", out var tvdbRaw) == true
-            && long.TryParse(tvdbRaw, out var tvdbId2))
+            && long.TryParse(tvdbRaw, out var tvdbId2)
+            && tvdbId2 != triedTvdbId)
         {
             var show = await _client!.LookupByTvdbIdAsync(tvdbId2, ct).ConfigureAwait(false);
             if (show is not null) return show.Id;

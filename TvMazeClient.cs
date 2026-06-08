@@ -34,6 +34,7 @@ internal sealed class TvMazeClient : IDisposable
     private async Task<HttpResponseMessage> GetAsync(string url, CancellationToken ct)
     {
         await _rateLimiter.WaitAsync(ct).ConfigureAwait(false);
+        bool released = false;
         try
         {
             var wait = MinInterval - (DateTimeOffset.UtcNow - _lastRequest);
@@ -45,16 +46,26 @@ internal sealed class TvMazeClient : IDisposable
 
             if (resp.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                var retry = resp.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(10);
-                _logger.LogWarning("TVMaze: rate-limited; waiting {Secs}s", retry.TotalSeconds);
-                await Task.Delay(retry, ct).ConfigureAwait(false);
-                resp = await _http.GetAsync(url, ct).ConfigureAwait(false);
-                _lastRequest = DateTimeOffset.UtcNow;
+                var retryDelta = resp.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(10);
+                // Cap the delay at 60 s so a misbehaving server can't stall the pipeline indefinitely.
+                var capped = retryDelta > TimeSpan.FromSeconds(60) ? TimeSpan.FromSeconds(60) : retryDelta;
+                _logger.LogWarning("TVMaze: rate-limited; waiting {Secs}s before retry", capped.TotalSeconds);
+
+                // Release before delaying so other callers aren't blocked during the wait,
+                // then re-enter through the full rate-limited wrapper (MinInterval + semaphore).
+                released = true;
+                _rateLimiter.Release();
+                await Task.Delay(capped, ct).ConfigureAwait(false);
+                return await GetAsync(url, ct).ConfigureAwait(false);
             }
 
             return resp;
         }
-        finally { _rateLimiter.Release(); }
+        finally
+        {
+            if (!released)
+                _rateLimiter.Release();
+        }
     }
 
     private async Task<T?> FetchAsync<T>(string url, CancellationToken ct) where T : class
@@ -103,6 +114,12 @@ internal sealed class TvMazeClient : IDisposable
 
     public Task<TvMazeArtwork[]?> GetArtworkAsync(int showId, CancellationToken ct)
         => FetchAsync<TvMazeArtwork[]>($"{BaseUrl}/shows/{showId}/images", ct);
+
+    // ── Image download ────────────────────────────────────────────────────────
+
+    /// <summary>Downloads raw image bytes from a direct URL (no rate-limiting needed for CDN).</summary>
+    public Task<byte[]> GetImageBytesAsync(string url, CancellationToken ct)
+        => _http.GetByteArrayAsync(url, ct);
 
     // ── Health ────────────────────────────────────────────────────────────────
 

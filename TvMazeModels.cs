@@ -68,16 +68,16 @@ record TvMazeCastMember(
     [property: JsonPropertyName("character")] TvMazeCharacter? Character);
 
 record TvMazePerson(
-    [property: JsonPropertyName("id")]   int    Id,
-    [property: JsonPropertyName("name")] string Name);
+    [property: JsonPropertyName("id")]   int     Id,
+    [property: JsonPropertyName("name")] string? Name);
 
 record TvMazeCharacter(
-    [property: JsonPropertyName("id")]   int    Id,
-    [property: JsonPropertyName("name")] string Name);
+    [property: JsonPropertyName("id")]   int     Id,
+    [property: JsonPropertyName("name")] string? Name);
 
 record TvMazeArtwork(
     [property: JsonPropertyName("id")]           int                    Id,
-    [property: JsonPropertyName("type")]         string                 Type,
+    [property: JsonPropertyName("type")]         string?                Type,
     [property: JsonPropertyName("main")]         bool                   Main,
     [property: JsonPropertyName("resolutions")]  TvMazeArtworkResolutions? Resolutions);
 

@@ -164,9 +164,18 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
         var results = await _client!.SearchShowsAsync(context.Name, ct).ConfigureAwait(false);
         if (results is null or { Length: 0 }) return [];
 
+        bool isAnimeSearch = string.Equals(
+            context.MediaTypeName, "anime", StringComparison.OrdinalIgnoreCase);
+
         var candidates = new List<ScoredCandidate>();
         foreach (var r in results.Take(5))
         {
+            // When the user searches the Anime tab, only include shows TVMaze classifies
+            // as "Anime" — otherwise non-anime TV shows bleed into anime results.
+            if (isAnimeSearch &&
+                !string.Equals(r.Show.Type, "Anime", StringComparison.OrdinalIgnoreCase))
+                continue;
+
             var score = ScoreSearchResult(r.Show, context);
             if (score < 40) continue;
             candidates.Add(new ScoredCandidate(MapShow(r.Show), score, "text search"));

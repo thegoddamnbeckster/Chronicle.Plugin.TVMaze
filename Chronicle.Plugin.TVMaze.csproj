@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Chronicle.Plugin.TVMaze</AssemblyName>
     <RootNamespace>Chronicle.Plugin.TVMaze</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>Chronicle Contributors</Authors>
     <Description>TVMaze TV metadata plugin for Chronicle. No API key required.</Description>
   </PropertyGroup>

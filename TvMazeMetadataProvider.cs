@@ -421,9 +421,8 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
     private static MediaMetadata MapShow(TvMazeShow show)
     {
         var cast = show.Embedded?.Cast?
-            .Select(c => c.Person?.Name)
-            .Where(n => n is not null)
-            .Cast<string>()
+            .Where(c => c.Person?.Name is not null)
+            .Select(c => new CastMember(c.Person!.Name!, c.Character?.Name))
             .Take(20)
             .ToList() ?? [];
 
@@ -451,7 +450,7 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
             BannerUrl    = bannerUrl,
             Genres       = show.Genres?.ToList() ?? [],
             Cast         = cast,
-            Directors    = [],
+            Crew         = [],   // TVMaze API doesn't expose crew credits
             Rating       = show.Rating?.Average,
             ExtendedData = extra.Count > 0
                 ? JsonSerializer.SerializeToElement(extra)
@@ -484,7 +483,7 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
             Rating         = episode.Rating?.Average,
             PosterUrl      = episode.Image?.Original ?? episode.Image?.Medium,
             Cast           = [],
-            Directors      = [],
+            Crew           = [],
         };
 
     // ── Artwork selection ─────────────────────────────────────────────────────

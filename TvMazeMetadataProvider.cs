@@ -469,6 +469,9 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
             Overview   = StripHtml(season.Summary),
             Year       = ParseYear(season.PremiereDate),
             PosterUrl  = season.Image?.Original ?? season.Image?.Medium,
+            ExtendedData = string.IsNullOrWhiteSpace(season.PremiereDate)
+                ? null
+                : JsonSerializer.SerializeToElement(new Dictionary<string, object?> { ["air_date"] = season.PremiereDate }),
         };
 
     private static MediaMetadata MapEpisode(TvMazeEpisode episode) =>
@@ -484,6 +487,11 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
             PosterUrl      = episode.Image?.Original ?? episode.Image?.Medium,
             Cast           = [],
             Crew           = [],
+            // The full air date, not just its year -- Kodi shows it per episode and Chronicle's
+            // scraper API reads it from extendedData "air_date".
+            ExtendedData   = string.IsNullOrWhiteSpace(episode.Airdate)
+                ? null
+                : JsonSerializer.SerializeToElement(new Dictionary<string, object?> { ["air_date"] = episode.Airdate }),
         };
 
     // ── Artwork selection ─────────────────────────────────────────────────────

@@ -7,8 +7,11 @@ namespace Chronicle.Plugin.TVMaze;
 
 /// <summary>
 /// HTTP wrapper for the TVMaze public REST API.
-/// No authentication required. Rate limit: 20 requests/10 seconds;
-/// a 100ms inter-request delay keeps Chronicle well under the limit.
+/// No authentication required. TVMaze's own docs (www.tvmaze.com/api) say API calls are rate
+/// limited to "at least 20 calls every 10 seconds per IP address" -- i.e. 2 req/s. Root-caused
+/// live (2026-09-28): this client's own 100ms inter-request delay paced at 10 req/s, five times
+/// over that limit, not "well under" it as the old comment claimed. 550ms keeps it at ~1.8 req/s,
+/// a real margin under the documented rate rather than five times past it.
 /// All public methods return null on 404; throw on other non-success status codes.
 /// </summary>
 internal sealed class TvMazeClient : IDisposable
@@ -16,7 +19,7 @@ internal sealed class TvMazeClient : IDisposable
     private const string BaseUrl = "https://api.tvmaze.com";
 
     private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
-    private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(550);
 
     private readonly HttpClient    _http;
     private readonly ILogger       _logger;

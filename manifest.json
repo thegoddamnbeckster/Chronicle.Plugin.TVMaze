@@ -6,6 +6,10 @@
   "description": "TV series, season, and episode metadata from TVMaze. No API key or account required.",
   "min_chronicle_version": "0.6.0",
   "entry_type":  "Chronicle.Plugin.TVMaze.TvMazeMetadataProvider",
+  "sourceUrls": [
+    { "match": "^show:(\\d+)", "url": "https://www.tvmaze.com/shows/$1" },
+    { "match": "^person:(\\d+)", "url": "https://www.tvmaze.com/people/$1" }
+  ],
   "iconUrl":     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAKcSURBVHhe7ZpNkoIwEIU5HgfiONyFI7icpSzdsXSZqSiG7vcaDQiVzCSpelVOS376y2sQmObSNK5kNRgoTRUABkpTBYCB0lQBYGCLfvrR7W5D727Qfep4DlI36E5j737wmA1KCKDj/kNHc6CukH8UtDdKCuDS9u6ug+5qzLOoc9Om4z8rLYCm3VYGaP8Ix3zSVwBsYVLvd4kgvknqaPt7JQcQXwbH298rPQA6fmVnT7C/VwYA4srgDPt7ZQGAyoCu7efY3ysPANRndLdWfI+ADIfsVSYAuAzufbv63VH298oGAO1yKIOd40UqHwDUby4DACOdcYQyAsBW98nqGJwbDlBWAHC33Ti4SeWPV4fvlRcA6qvb0fb3ygwAl8HSjre/V3YAqAxe7QT7e+UHgPo/2xn298oQgFUG59jf6wQAf0sVAAZKUwWAgdJUAWCgNFUAGChNFQAGSlMFgIHSFAkAXkwY9+Z4B8ePrmEM89k+vgAx2mPuiOPMNbD2AaDbU7wFNibHd3s0hjWP0fIAAA8ojKc4OHl4tyf+NSb+IYcADABwnq3aDOA+zisRFg72H8cAQi9ML3g5nkvJknwx+hw3JYC+nz8vT3peC5z6xQlqYcH+c5/gGKsMtDh5vZ4EANolYbUbg7uKUpALW+z/co2wtHkyhH5ULlyS1CLdtQtA2FG/ePnZBGDv1nLVsJ8ZyqsKnytSAwiJDm6a89dxkSyd/bmhjdUl1XSIDXWP9gGgyx6/yHwuDI9baTJJCcxMXq8nEQDYpZfdEID4m20sx5gBRiWv15MMgJkcAKAEcVw1Rhfnlsc5I+IcsAIdtR+AtQsKAP54wTG95DHwJni1JQHwf1UBYKA0VQAYKE0VAAZKUwWAgdJUAWCgNBUP4BeYI+ijz8zs7AAAAABJRU5ErkJggg==",
   "brandColorLight": "#CF0000",
   "brandColorDark":  "#FF2929",

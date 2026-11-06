@@ -35,7 +35,7 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
 
     public string PluginId => "chronicle.plugin.tvmaze";
     public string Name     => "TVMaze";
-    public string Version  => "1.0.0";
+    public string Version  => System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(TvMazeMetadataProvider).Assembly)?.InformationalVersion.Split('+')[0] ?? "1.0.5";
     public string Author   => "Chronicle Contributors";
 
     // ── Live state ────────────────────────────────────────────────────────────
@@ -379,11 +379,7 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
     // ── Image + health ────────────────────────────────────────────────────────
 
     public Task<byte[]> GetImageAsync(string url, CancellationToken ct = default)
-    {
-        EnsureConfigured();
-        // TVMaze image CDN URLs are public and require no auth — fetch directly via the client's HttpClient.
-        return _client!.GetImageBytesAsync(url, ct);
-    }
+        => throw new NotSupportedException("Images are loaded by the browser straight from the address in the metadata; this plugin has nothing to fetch.");
 
     public async Task<bool> HealthCheckAsync(CancellationToken ct = default)
     {

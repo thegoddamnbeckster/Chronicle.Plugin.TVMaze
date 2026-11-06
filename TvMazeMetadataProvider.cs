@@ -106,7 +106,8 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
         _ownedHttp?.Dispose();
         var http = new HttpClient
         {
-            DefaultRequestHeaders = { { "User-Agent", "Chronicle/1.0" } },
+            Timeout = TimeSpan.FromSeconds(20),
+            DefaultRequestHeaders = { { "User-Agent", $"Chronicle-TVMaze/{Version}" } },
         };
         _ownedHttp = http;
         _client    = new TvMazeClient(http, _logger);

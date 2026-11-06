@@ -34,7 +34,9 @@ internal sealed class TvMazeClient : IDisposable
 
     // ── Rate-limited GET ──────────────────────────────────────────────────────
 
-    private async Task<HttpResponseMessage> GetAsync(string url, CancellationToken ct)
+    private const int MaxRateLimitRetries = 3;
+
+    private async Task<HttpResponseMessage> GetAsync(string url, CancellationToken ct, int rateLimited = 0)
     {
         await _rateLimiter.WaitAsync(ct).ConfigureAwait(false);
         bool released = false;
@@ -49,6 +51,9 @@ internal sealed class TvMazeClient : IDisposable
 
             if (resp.StatusCode == HttpStatusCode.TooManyRequests)
             {
+                // Bounded: out of patience, report it as a rate limit so the host pauses the pass instead of this call waiting for ever.
+                if (rateLimited >= MaxRateLimitRetries)
+                    throw new HttpRequestException("TVMaze is rate limiting requests", null, HttpStatusCode.TooManyRequests);
                 var retryDelta = resp.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(10);
                 // Cap the delay at 60 s so a misbehaving server can't stall the pipeline indefinitely.
                 var capped = retryDelta > TimeSpan.FromSeconds(60) ? TimeSpan.FromSeconds(60) : retryDelta;
@@ -59,7 +64,7 @@ internal sealed class TvMazeClient : IDisposable
                 released = true;
                 _rateLimiter.Release();
                 await Task.Delay(capped, ct).ConfigureAwait(false);
-                return await GetAsync(url, ct).ConfigureAwait(false);
+                return await GetAsync(url, ct, rateLimited + 1).ConfigureAwait(false);
             }
 
             return resp;

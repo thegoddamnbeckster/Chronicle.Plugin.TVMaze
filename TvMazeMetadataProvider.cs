@@ -415,12 +415,11 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
         return full is not null ? MapShow(full) : MapShow(show);
     }
 
-    private static MediaMetadata MapShow(TvMazeShow show)
+    internal static MediaMetadata MapShow(TvMazeShow show)
     {
         var cast = show.Embedded?.Cast?
             .Where(c => c.Person?.Name is not null)
             .Select(c => new CastMember(c.Person!.Name!, c.Character?.Name))
-            .Take(20)
             .ToList() ?? [];
 
         var backdropUrl = BestArtwork(show.Embedded?.Images, "background");

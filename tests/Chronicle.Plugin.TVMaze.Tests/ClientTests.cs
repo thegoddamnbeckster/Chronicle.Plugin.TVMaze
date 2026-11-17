@@ -32,16 +32,17 @@ public class ClientTests
     [Fact]
     public async Task Rate_limiting_that_never_clears_is_reported_as_a_rate_limit_after_a_bounded_wait()
     {
-        // Retry-After 0 so the test does not sit waiting; the point is that it stops.
+        // A tiny Retry-After so the test does not sit waiting; the point is that it stops, and says what the site asked for.
         HttpResponseMessage Limited()
         {
             var r = Reply.Status(HttpStatusCode.TooManyRequests);
-            r.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.Zero);
+            r.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromMilliseconds(1));
             return r;
         }
         var h = new StubHandler(_ => Limited());
         var ex = await Assert.ThrowsAsync<HttpRequestException>(() => Client(h).GetShowAsync(1, default));
         Assert.Equal(HttpStatusCode.TooManyRequests, ex.StatusCode);
+        Assert.Equal(TimeSpan.FromMilliseconds(1), ex.Data["RetryAfter"]);
         Assert.True(h.Requests.Count <= 4, $"asked {h.Requests.Count} times");
     }
 }

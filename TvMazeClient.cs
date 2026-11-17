@@ -53,7 +53,8 @@ internal sealed class TvMazeClient : IDisposable
             {
                 // Bounded: out of patience, report it as a rate limit so the host pauses the pass instead of this call waiting for ever.
                 if (rateLimited >= MaxRateLimitRetries)
-                    throw new HttpRequestException("TVMaze is rate limiting requests", null, HttpStatusCode.TooManyRequests);
+                    throw WithRetryAfter(new HttpRequestException("TVMaze is rate limiting requests", null, HttpStatusCode.TooManyRequests),
+                                         resp.Headers.RetryAfter?.Delta);
                 var retryDelta = resp.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(10);
                 // Cap the delay at 60 s so a misbehaving server can't stall the pipeline indefinitely.
                 var capped = retryDelta > TimeSpan.FromSeconds(60) ? TimeSpan.FromSeconds(60) : retryDelta;
@@ -144,6 +145,17 @@ internal sealed class TvMazeClient : IDisposable
             _logger.LogWarning(ex, "TVMaze health check failed");
             return false;
         }
+    }
+
+
+    /// <summary>
+    /// Says how long the provider asked clients to wait, on the exception, under the key Chronicle's queue reads
+    /// (<c>Data["RetryAfter"]</c>, a TimeSpan): the host never waits less, and an item held for a long time goes to the back of the queue.
+    /// </summary>
+    private static HttpRequestException WithRetryAfter(HttpRequestException ex, TimeSpan? after)
+    {
+        if (after is { } a && a > TimeSpan.Zero) ex.Data["RetryAfter"] = a;
+        return ex;
     }
 
     public void Dispose() => _rateLimiter.Dispose();

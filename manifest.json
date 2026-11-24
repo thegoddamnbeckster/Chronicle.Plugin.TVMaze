@@ -1,7 +1,7 @@
 {
   "plugin_id":   "chronicle.plugin.tvmaze",
   "name":        "TVMaze",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author":      "Chronicle Contributors",
   "description": "TV series, season, and episode metadata from TVMaze. No API key or account required.",
   "min_chronicle_version": "0.6.0",
@@ -30,5 +30,12 @@
       "default_enabled": false
     }
   ],
-  "settings": []
+  "settings": [],
+  "rating_sources": [
+    {
+      "key": "tvmaze",
+      "display_name": "TVmaze",
+      "star": "row"
+    }
+  ]
 }

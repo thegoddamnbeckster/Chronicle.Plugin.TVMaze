@@ -490,6 +490,33 @@ public sealed class TvMazeMetadataProvider : IMetadataProvider, IDisposable
                 : JsonSerializer.SerializeToElement(new Dictionary<string, object?> { ["air_date"] = episode.Airdate }),
         };
 
+    /// <summary>
+    /// The episodes of one season of a show (<paramref name="showExternalId"/> is "show:{id}"), found through the same season and
+    /// episode calls and mapping the season search uses. Empty for any other kind of id and for a season TVMaze does not list
+    /// (it has no season 0: its specials are not numbered as one).
+    /// </summary>
+    public async Task<IReadOnlyList<ProviderEpisodeSummary>> GetEpisodeListAsync(
+        string showExternalId, int seasonNumber, CancellationToken ct = default)
+    {
+        if (_client is null || !showExternalId.StartsWith("show:", StringComparison.OrdinalIgnoreCase)
+            || !int.TryParse(showExternalId[5..], out var showId))
+            return [];
+
+        var seasons = await _client.GetSeasonsAsync(showId, ct).ConfigureAwait(false);
+        var season = seasons?.FirstOrDefault(s => s.Number == seasonNumber);
+        if (season is null) return [];
+
+        var episodes = await _client.GetEpisodesForSeasonAsync(season.Id, ct).ConfigureAwait(false);
+        return (episodes ?? [])
+            .Where(e => e.Number.HasValue)
+            .Select(e =>
+            {
+                var m = MapEpisode(e);
+                return new ProviderEpisodeSummary(e.Number!.Value, m.Title, m.Overview, m.PosterUrl, e.Airdate);
+            })
+            .ToList();
+    }
+
     // ── Artwork selection ─────────────────────────────────────────────────────
 
     private static string? BestArtwork(TvMazeArtwork[]? artworks, string type)
